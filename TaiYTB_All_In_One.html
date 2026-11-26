@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TaiYTB — Premium System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+:root{--bg:#07090d;--card:rgba(17,22,32,.72);--text:#f5f7fb;--muted:#9ca7b8;--line:rgba(255,255,255,.1);--accent:#7c3aed}
+:root.light{--bg:#f4f7fb;--card:rgba(255,255,255,.8);--text:#111827;--muted:#667085;--line:rgba(17,24,39,.12)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#111827 0,var(--bg) 45%);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh}
+.light body{background:linear-gradient(135deg,#eef2ff,#f8fafc)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+.glass{background:var(--card);border:1px solid var(--line);backdrop-filter:blur(18px);box-shadow:0 20px 60px #00000025}
+.nav{position:sticky;top:0;z-index:20;background:#07090dcc;border-bottom:1px solid var(--line);backdrop-filter:blur(18px)}
+.light .nav{background:#ffffffcc}.container{max-width:1150px;margin:auto;padding:18px}
+.logo{font-weight:900;letter-spacing:.12em}.grad{background:linear-gradient(90deg,#8b5cf6,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{border:1px solid var(--line);border-radius:14px;padding:10px 15px;background:rgba(255,255,255,.06);color:var(--text);transition:.18s}.btn:hover{transform:translateY(-1px);border-color:#8b5cf6}.primary{background:linear-gradient(135deg,#7c3aed,#2563eb);border:0}.danger{background:#ef444420;border-color:#ef444455;color:#fca5a5}
+.input{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#00000020;color:var(--text);outline:none}.input:focus{border-color:#8b5cf6}
+.muted{color:var(--muted)}.hidden{display:none!important}.grid{display:grid;gap:16px}.apps{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{padding:18px;border-radius:20px}.pill{display:inline-flex;padding:5px 9px;border-radius:999px;background:#7c3aed20;border:1px solid #8b5cf633;font-size:12px}
+.modal{position:fixed;inset:0;background:#0008;z-index:50;display:flex;align-items:center;justify-content:center;padding:18px}.modal-box{width:min(460px,100%);max-height:90vh;overflow:auto;padding:22px;border-radius:22px}
+.tab{padding:9px 12px;border-radius:10px}.tab.active{background:#7c3aed;color:white}.stat{font-size:25px;font-weight:900}.small{font-size:12px}
+.toast{position:fixed;right:18px;bottom:18px;z-index:100;padding:13px 16px;border-radius:14px}.rating button{font-size:28px;background:none;border:0}
+</style>
+</head>
+<body>
+<nav class="nav">
+<div class="container flex items-center justify-between gap-3">
+<div class="logo grad">TAIYTB <span class="pill">PREMIUM</span></div>
+<div class="flex gap-2 items-center">
+<button class="btn" onclick="toggleTheme()">🌙/☀️</button>
+<button class="btn" id="authBtn" onclick="openModal('auth')">Đăng nhập</button>
+<button class="btn hidden" id="adminBtn" onclick="openAdmin()">🛠️ Admin</button>
+<button class="btn hidden" id="logoutBtn" onclick="logout()">Đăng xuất</button>
+</div></div></nav>
+
+<main class="container">
+<section class="glass card mt-4">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div><div class="muted small">TAIYTB SYSTEM</div><h1 class="text-3xl font-black mt-1">Client IOS</h1><p class="muted mt-1">Kho ứng dụng với tài khoản, Premium và thống kê thật.</p></div>
+<div class="flex gap-2"><button class="btn primary" onclick="openModal('key')">👑 Nhập Premium Key</button><button class="btn" onclick="openModal('history')">📥 Lịch sử</button></div>
+</div>
+<div class="grid md:grid-cols-4 mt-5">
+<div><div class="muted small">Lượt xem</div><div class="stat" id="views">0</div></div>
+<div><div class="muted small">Lượt tải</div><div class="stat" id="downloads">0</div></div>
+<div><div class="muted small">Đánh giá</div><div class="stat" id="ratings">0</div></div>
+<div><div class="muted small">Trạng thái</div><div class="stat text-lg" id="premiumStatus">FREE</div></div>
+</div>
+</section>
+
+<section class="glass card mt-4">
+<div class="flex flex-wrap gap-2 mb-4">
+<input id="search" class="input flex-1" style="min-width:220px" placeholder="🔎 Tìm ứng dụng..." oninput="renderApps()">
+<select id="filter" class="input" style="max-width:180px" onchange="renderApps()"><option value="all">Tất cả</option><option value="free">Miễn phí</option><option value="premium">Premium</option></select>
+</div>
+<div id="appList" class="grid apps"></div>
+</section>
+
+<section class="glass card mt-4">
+<h2 class="text-xl font-bold">🔔 Thông báo</h2>
+<div id="notifications" class="mt-3 grid"></div>
+</section>
+</main>
+
+<!-- AUTH -->
+<div id="auth" class="modal hidden"><div class="modal-box glass">
+<div class="flex justify-between"><h2 class="text-xl font-bold" id="authTitle">Đăng nhập</h2><button class="btn" onclick="closeModal('auth')">✕</button></div>
+<div class="grid mt-4">
+<div id="nameWrap" class="hidden"><label class="small muted">Tên hiển thị</label><input id="name" class="input mt-1"></div>
+<div><label class="small muted">Email</label><input id="email" type="email" class="input mt-1"></div>
+<div><label class="small muted">Mật khẩu</label><input id="password" type="password" class="input mt-1"></div>
+<div id="pass2Wrap" class="hidden"><label class="small muted">Nhập lại mật khẩu</label><input id="password2" type="password" class="input mt-1"></div>
+<div id="captchaBox" class="hidden"><div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY" data-callback="captchaDone"></div></div>
+<button class="btn primary" onclick="submitAuth()" id="authSubmit">Đăng nhập</button>
+<button class="btn" onclick="switchAuth()" id="switchAuth">Chưa có tài khoản? Đăng ký</button>
+<p class="small muted">CAPTCHA phải được xác minh ở backend/Edge Function; không dùng client-side CAPTCHA giả.</p>
+</div></div></div>
+
+<!-- KEY -->
+<div id="key" class="modal hidden"><div class="modal-box glass">
+<div class="flex justify-between"><h2 class="text-xl font-bold">👑 Kích hoạt Premium</h2><button class="btn" onclick="closeModal('key')">✕</button></div>
+<p class="muted mt-2">Key hợp lệ sẽ được gắn vĩnh viễn vào tài khoản trong database.</p>
+<input id="premiumKey" class="input mt-4" placeholder="TAIYTB-XXXX-XXXX-XXXX">
+<button class="btn primary w-full mt-3" onclick="activateKey()">Kích hoạt</button>
+</div></div>
+
+<!-- HISTORY -->
+<div id="history" class="modal hidden"><div class="modal-box glass">
+<div class="flex justify-between"><h2 class="text-xl font-bold">📥 Lịch sử xem/tải</h2><button class="btn" onclick="closeModal('history')">✕</button></div>
+<div id="historyList" class="mt-4"></div></div></div>
+
+<!-- RATING -->
+<div id="rating" class="modal hidden"><div class="modal-box glass">
+<div class="flex justify-between"><h2 class="text-xl font-bold">⭐ Đánh giá</h2><button class="btn" onclick="closeModal('rating')">✕</button></div>
+<div id="ratingApp" class="muted mt-2"></div>
+<div class="rating mt-3" id="stars"></div>
+<textarea id="comment" class="input mt-3" rows="4" placeholder="Viết bình luận..."></textarea>
+<button class="btn primary w-full mt-3" onclick="submitReview()">Gửi đánh giá</button>
+</div></div>
+
+<!-- ADMIN -->
+<div id="admin" class="modal hidden"><div class="modal-box glass" style="width:min(850px,100%)">
+<div class="flex justify-between"><h2 class="text-xl font-bold">🛠️ Admin</h2><button class="btn" onclick="closeModal('admin')">✕</button></div>
+<div class="flex gap-2 mt-4 flex-wrap"><button class="tab active" onclick="adminTab('apps',this)">App</button><button class="tab" onclick="adminTab('keys',this)">Key</button><button class="tab" onclick="adminTab('users',this)">User</button><button class="tab" onclick="adminTab('stats',this)">Thống kê</button></div>
+<div id="adminApps" class="mt-4">
+<div class="grid md:grid-cols-2"><input id="newName" class="input" placeholder="Tên app"><input id="newUrl" class="input" placeholder="URL tải miễn phí"><input id="newPremiumUrl" class="input" placeholder="URL Premium"><input id="newSize" class="input" placeholder="Dung lượng"></div>
+<button class="btn primary mt-3" onclick="addApp()">+ Thêm app</button><div id="adminAppList" class="mt-4"></div>
+</div>
+<div id="adminKeys" class="hidden mt-4"><input id="keyCount" class="input" type="number" min="1" max="100" value="10"><button class="btn primary mt-3" onclick="generateKeys()">Tạo key</button><pre id="keyOutput" class="glass p-3 mt-3 whitespace-pre-wrap"></pre></div>
+<div id="adminUsers" class="hidden mt-4"><div id="userList"></div></div>
+<div id="adminStats" class="hidden mt-4"><div id="statList"></div></div>
+</div></div>
+
+<div id="toast" class="toast glass hidden"></div>
+
+<script>
+/* =========================
+   TAIYTB SINGLE-FILE CLIENT
+   =========================
+   Để chạy database thật:
+   1) Tạo Supabase project.
+   2) Điền SUPABASE_URL + SUPABASE_ANON_KEY.
+   3) Tạo bảng users/apps/premium_keys/views/downloads/reviews/notifications.
+   4) Bật RLS và viết policy phù hợp.
+   5) Dùng Edge Function để xác minh Turnstile token và các thao tác admin/key.
+   Không đặt SERVICE_ROLE_KEY hoặc mật khẩu admin trong HTML.
+*/
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const DEMO_MODE = SUPABASE_URL.startsWith("YOUR_");
+const sb = !DEMO_MODE ? supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY) : null;
+
+let authMode="login", captchaToken=null, selectedApp=null, selectedRating=0;
+let demoApps = JSON.parse(localStorage.getItem("taiytb_demo_apps")||"null") || [
+ {id:"101",name:"DeltaVN V10.5",size:"114.67 MB",update:"24/01/2026",url:"#",premium_url:"#",premium:true}
+];
+let demoHistory = JSON.parse(localStorage.getItem("taiytb_demo_history")||"[]");
+
+function $(id){return document.getElementById(id)}
+function toast(s){$("toast").textContent=s;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
+function openModal(id){$(id).classList.remove("hidden");if(id==="history")renderHistory()}
+function closeModal(id){$(id).classList.add("hidden")}
+function toggleTheme(){document.documentElement.classList.toggle("light");localStorage.setItem("theme",document.documentElement.classList.contains("light")?"light":"dark")}
+if(localStorage.getItem("theme")==="light")document.documentElement.classList.add("light");
+function switchAuth(){authMode=authMode==="login"?"register":"login";$("authTitle").textContent=authMode==="login"?"Đăng nhập":"Tạo tài khoản";$("authSubmit").textContent=authMode==="login"?"Đăng nhập":"Đăng ký";$("switchAuth").textContent=authMode==="login"?"Chưa có tài khoản? Đăng ký":"Đã có tài khoản? Đăng nhập";$("nameWrap").classList.toggle("hidden",authMode==="login");$("pass2Wrap").classList.toggle("hidden",authMode==="login");$("captchaBox").classList.toggle("hidden",authMode==="login")}
+function captchaDone(t){captchaToken=t}
+async function submitAuth(){
+ const email=$("email").value.trim(), pass=$("password").value, name=$("name").value.trim();
+ if(!email||!pass)return toast("Vui lòng nhập email và mật khẩu");
+ if(authMode==="register" && pass!==$("password2").value)return toast("Mật khẩu nhập lại không khớp");
+ if(authMode==="register" && !captchaToken && !DEMO_MODE)return toast("Hãy hoàn thành CAPTCHA");
+ if(DEMO_MODE){
+   let users=JSON.parse(localStorage.getItem("taiytb_demo_users")||"[]");
+   if(authMode==="register"){
+     if(users.some(u=>u.email===email))return toast("Email đã tồn tại");
+     users.push({id:crypto.randomUUID(),name,email,premium:false,created_at:new Date().toISOString()});
+     localStorage.setItem("taiytb_demo_users",JSON.stringify(users)); localStorage.setItem("taiytb_demo_user",JSON.stringify(users.at(-1)));
+     toast("Tạo tài khoản thành công (DEMO)"); closeModal("auth"); updateUI(); return;
+   }
+   let u=users.find(x=>x.email===email); if(!u)return toast("Tài khoản chưa tồn tại (DEMO)");
+   localStorage.setItem("taiytb_demo_user",JSON.stringify(u));toast("Đăng nhập thành công (DEMO)");closeModal("auth");updateUI();return;
+ }
+ try{
+   if(authMode==="register"){
+     const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name},captchaToken}});
+     if(error)throw error; toast("Đăng ký thành công. Kiểm tra email nếu hệ thống yêu cầu.");
+   }else{
+     const {error}=await sb.auth.signInWithPassword({email,password:pass});if(error)throw error;toast("Đăng nhập thành công");
+   }
+   closeModal("auth");updateUI();
+ }catch(e){toast(e.message||"Có lỗi đăng nhập")}
+}
+async function logout(){if(!DEMO_MODE)await sb.auth.signOut();localStorage.removeItem("taiytb_demo_user");updateUI();toast("Đã đăng xuất")}
+function currentUser(){return JSON.parse(localStorage.getItem("taiytb_demo_user")||"null")}
+async function updateUI(){
+ let u=currentUser(), premium=!!u?.premium;
+ if(!DEMO_MODE){const {data:{user}}=await sb.auth.getUser();u=user;if(u){const {data:p}=await sb.from("users").select("premium, name, role").eq("id",u.id).single();premium=!!p?.premium;window.taiRole=p?.role}}
+ $("authBtn").classList.toggle("hidden",!!u);$("logoutBtn").classList.toggle("hidden",!u);$("adminBtn").classList.toggle("hidden",window.taiRole!=="admin");$("premiumStatus").textContent=premium?"👑 PREMIUM":"FREE";
+ renderApps();loadStats();renderNotifications();
+}
+function renderApps(){
+ const q=$("search").value.toLowerCase(), f=$("filter").value;
+ let apps=demoApps.filter(a=>(a.name.toLowerCase().includes(q))&&(f==="all"||(f==="premium"?a.premium:!a.premium)));
+ $("appList").innerHTML=apps.map(a=>`<div class="glass card"><div class="flex justify-between gap-2"><div><h3 class="font-bold text-lg">${esc(a.name)}</h3><div class="muted small">${esc(a.size||"—")} • cập nhật ${esc(a.update||"—")}</div></div>${a.premium?'<span class="pill">👑 Premium</span>':''}</div><div class="flex gap-2 mt-4"><button class="btn primary flex-1" onclick="downloadApp('${a.id}')">📥 Tải</button><button class="btn" onclick="openRating('${a.id}')">⭐</button></div><button class="btn w-full mt-2" onclick="viewApp('${a.id}')">Xem chi tiết</button></div>`).join("")||'<p class="muted">Không tìm thấy app.</p>';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function viewApp(id){let a=demoApps.find(x=>x.id===id);if(!a)return;demoHistory.unshift({type:"view",app:a.name,time:new Date().toISOString()});demoHistory=demoHistory.slice(0,50);localStorage.setItem("taiytb_demo_history",JSON.stringify(demoHistory));toast("Đã ghi nhận lượt xem");}
+function downloadApp(id){
+ let a=demoApps.find(x=>x.id===id);if(!a)return;
+ let u=currentUser();if(a.premium&&!u?.premium)return toast("Ứng dụng này yêu cầu Premium");
+ let url=a.premium? a.premium_url:a.url;
+ demoHistory.unshift({type:"download",app:a.name,time:new Date().toISOString()});demoHistory=demoHistory.slice(0,50);localStorage.setItem("taiytb_demo_history",JSON.stringify(demoHistory));
+ if(url&&url!=="#")location.href=url;else toast("Đã ghi nhận tải xuống (DEMO)");
+}
+function renderHistory(){$("historyList").innerHTML=demoHistory.map(x=>`<div class="glass p-3 rounded-xl mb-2"><b>${esc(x.app)}</b><div class="small muted">${x.type==="view"?"👁️ Xem":"📥 Tải"} • ${new Date(x.time).toLocaleString("vi-VN")}</div></div>`).join("")||'<p class="muted">Chưa có lịch sử.</p>'}
+function openRating(id){selectedApp=id;selectedRating=0;$("ratingApp").textContent=demoApps.find(a=>a.id===id)?.name||"";$("comment").value="";$("stars").innerHTML=[1,2,3,4,5].map(i=>`<button onclick="setRating(${i})">☆</button>`).join("");openModal("rating")}
+function setRating(n){selectedRating=n;$("stars").innerHTML=[1,2,3,4,5].map(i=>`<button onclick="setRating(${i})">${i<=n?"★":"☆"}</button>`).join("")}
+function submitReview(){if(!currentUser()&&!DEMO_MODE)return toast("Hãy đăng nhập");if(!selectedRating)return toast("Chọn số sao");toast("Đã gửi đánh giá (DEMO). Bản production sẽ lưu vào database.");closeModal("rating")}
+async function activateKey(){
+ let u=currentUser();if(!u&&!DEMO_MODE)return toast("Hãy đăng nhập trước");
+ let key=$("premiumKey").value.trim();if(!key)return toast("Nhập Premium Key");
+ if(DEMO_MODE){
+   if(!/^TAIYTB-/i.test(key))return toast("Key không hợp lệ (DEMO)");
+   u.premium=true;localStorage.setItem("taiytb_demo_user",JSON.stringify(u));toast("👑 Premium đã kích hoạt vĩnh viễn (DEMO)");closeModal("key");updateUI();return;
+ }
+ // Production: gọi Edge Function. Không kiểm tra key trực tiếp ở browser.
+ try{
+   const {data:{session}}=await sb.auth.getSession();
+   const res=await fetch(`${SUPABASE_URL}/functions/v1/redeem-premium-key`,{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({key})});
+   const data=await res.json();if(!res.ok)throw Error(data.error||"Key không hợp lệ");
+   toast("👑 Premium đã kích hoạt vĩnh viễn");closeModal("key");updateUI();
+ }catch(e){toast(e.message)}
+}
+function openAdmin(){if(window.taiRole!=="admin"&& !DEMO_MODE)return toast("Không có quyền admin");openModal("admin");renderAdminApps();renderAdminUsers();renderAdminStats()}
+function adminTab(tab,el){document.querySelectorAll("#admin .tab").forEach(x=>x.classList.remove("active"));el.classList.add("active");["Apps","Keys","Users","Stats"].forEach(x=>$("admin"+x).classList.add("hidden"));$("admin"+tab[0].toUpperCase()+tab.slice(1)).classList.remove("hidden")}
+function renderAdminApps(){$("adminAppList").innerHTML=demoApps.map(a=>`<div class="glass p-3 rounded-xl mb-2 flex justify-between gap-2"><span>${esc(a.name)}</span><button class="btn danger" onclick="deleteApp('${a.id}')">Xóa</button></div>`).join("")}
+function addApp(){let name=$("newName").value.trim();if(!name)return toast("Nhập tên app");demoApps.push({id:crypto.randomUUID(),name,size:$("newSize").value,url:$("newUrl").value,premium_url:$("newPremiumUrl").value,premium:!!$("newPremiumUrl").value,update:new Date().toLocaleDateString("vi-VN")});localStorage.setItem("taiytb_demo_apps",JSON.stringify(demoApps));renderAdminApps();renderApps();toast("Đã thêm app (DEMO)")}
+function deleteApp(id){demoApps=demoApps.filter(a=>a.id!==id);localStorage.setItem("taiytb_demo_apps",JSON.stringify(demoApps));renderAdminApps();renderApps()}
+function generateKeys(){let n=Math.min(100,Math.max(1,Number($("keyCount").value)||1)),out=[];for(let i=0;i<n;i++)out.push("TAIYTB-"+crypto.randomUUID().split("-")[0].toUpperCase()+"-"+crypto.randomUUID().split("-")[0].toUpperCase());$("keyOutput").textContent=out.join("\n");toast("Đã tạo key (DEMO). Production phải tạo ở server.")}
+function renderAdminUsers(){let users=JSON.parse(localStorage.getItem("taiytb_demo_users")||"[]");$("userList").innerHTML=users.map(u=>`<div class="glass p-3 rounded-xl mb-2"><b>${esc(u.name)}</b><div class="small muted">${esc(u.email)} • ${u.premium?"👑 Premium":"Free"}</div></div>`).join("")||'<p class="muted">Chưa có user.</p>'}
+function renderAdminStats(){$("statList").innerHTML=`<div class="grid md:grid-cols-3"><div class="glass card"><div class="muted small">Views</div><div class="stat">${demoHistory.filter(x=>x.type==="view").length}</div></div><div class="glass card"><div class="muted small">Downloads</div><div class="stat">${demoHistory.filter(x=>x.type==="download").length}</div></div><div class="glass card"><div class="muted small">Users</div><div class="stat">${JSON.parse(localStorage.getItem("taiytb_demo_users")||"[]").length}</div></div></div>`}
+function loadStats(){if(DEMO_MODE){$("views").textContent=demoHistory.filter(x=>x.type==="view").length;$("downloads").textContent=demoHistory.filter(x=>x.type==="download").length;$("ratings").textContent=0;return}}
+function renderNotifications(){$("notifications").innerHTML='<div class="glass p-3 rounded-xl"><b>Hệ thống sẵn sàng</b><div class="small muted">Thông báo app mới sẽ được đọc từ bảng notifications trong database.</div></div>'}
+updateUI();
+</script>
+</body>
+</html>
